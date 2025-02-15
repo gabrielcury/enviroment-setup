@@ -9,6 +9,11 @@ services:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.email=seu-email@teste.dev.br"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
       - "--tracing.jaeger=true"
       - "--tracing.jaeger.samplingServerURL=http://jaeger:5778/sampling"
       - "--tracing.jaeger.localAgentHostPort=jaeger:6831"
@@ -17,10 +22,11 @@ services:
       - "--accesslog.filepath=/var/log/traefik/access.log"
     ports:
       - "80:80"
-      - "8080:8080"
+      - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./traefik-logs:/var/log/traefik
+      - ./letsencrypt:/letsencrypt
     networks:
       - app_network
 
@@ -28,12 +34,6 @@ services:
     image: jaegertracing/all-in-one:latest
     container_name: jaeger
     restart: unless-stopped
-    ports:
-      - "5775:5775/udp"
-      - "6831:6831/udp"
-      - "6832:6832/udp"
-      - "5778:5778"
-      - "16686:16686"
     networks:
       - app_network
 
@@ -43,8 +43,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yaml
-    ports:
-      - "9090:9090"
     networks:
       - app_network
   
@@ -54,14 +52,13 @@ services:
     restart: unless-stopped
     volumes:
       - grafana_data:/var/lib/grafana
-    ports:
-      - "3000:3000"
     networks:
       - app_network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.local`)"
-      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.teste.dev.br`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls.certresolver=myresolver"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 
   nginx:
@@ -77,8 +74,9 @@ services:
       - app_network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.nginx.rule=Host(`nginx.local`)"
-      - "traefik.http.routers.nginx.entrypoints=web"
+      - "traefik.http.routers.nginx.rule=Host(`nginx.teste.dev.br`)"
+      - "traefik.http.routers.nginx.entrypoints=websecure"
+      - "traefik.http.routers.nginx.tls.certresolver=myresolver"
       - "traefik.http.services.nginx.loadbalancer.server.port=80"
 
   php:
@@ -105,8 +103,9 @@ services:
       - app_network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mysql.rule=Host(`mysql.local`)"
-      - "traefik.http.routers.mysql.entrypoints=web"
+      - "traefik.http.routers.mysql.rule=Host(`mysql.teste.dev.br`)"
+      - "traefik.http.routers.mysql.entrypoints=websecure"
+      - "traefik.http.routers.mysql.tls.certresolver=myresolver"
       - "traefik.http.services.mysql.loadbalancer.server.port=3306"
 
   phpmyadmin:
@@ -119,8 +118,9 @@ services:
       PMA_PASSWORD: root
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.local`)"
-      - "traefik.http.routers.phpmyadmin.entrypoints=web"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.teste.dev.br`)"
+      - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
+      - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
       - "traefik.http.services.phpmyadmin.loadbalancer.server.port=80"
     networks:
       - app_network
@@ -133,8 +133,9 @@ services:
       - app_network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.redis.rule=Host(`redis.local`)"
-      - "traefik.http.routers.redis.entrypoints=web"
+      - "traefik.http.routers.redis.rule=Host(`redis.teste.dev.br`)"
+      - "traefik.http.routers.redis.entrypoints=websecure"
+      - "traefik.http.routers.redis.tls.certresolver=myresolver"
       - "traefik.http.services.redis.loadbalancer.server.port=6379"
 
   mongodb:
@@ -147,8 +148,9 @@ services:
       - app_network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mongodb.rule=Host(`mongodb.local`)"
-      - "traefik.http.routers.mongodb.entrypoints=web"
+      - "traefik.http.routers.mongodb.rule=Host(`mongodb.teste.dev.br`)"
+      - "traefik.http.routers.mongodb.entrypoints=websecure"
+      - "traefik.http.routers.mongodb.tls.certresolver=myresolver"
       - "traefik.http.services.mongodb.loadbalancer.server.port=27017"
 
   adminer:
@@ -157,8 +159,9 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.adminer.rule=Host(`adminer.local`)"
-      - "traefik.http.routers.adminer.entrypoints=web"
+      - "traefik.http.routers.adminer.rule=Host(`adminer.teste.dev.br`)"
+      - "traefik.http.routers.adminer.entrypoints=websecure"
+      - "traefik.http.routers.adminer.tls.certresolver=myresolver"
       - "traefik.http.services.adminer.loadbalancer.server.port=8080"
     networks:
       - app_network
@@ -171,8 +174,9 @@ services:
       - jenkins_home:/var/jenkins_home
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.jenkins.rule=Host(`jenkins.local`)"
-      - "traefik.http.routers.jenkins.entrypoints=web"
+      - "traefik.http.routers.jenkins.rule=Host(`jenkins.teste.dev.br`)"
+      - "traefik.http.routers.jenkins.entrypoints=websecure"
+      - "traefik.http.routers.jenkins.tls.certresolver=myresolver"
       - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
     networks:
       - app_network
@@ -188,8 +192,9 @@ services:
       - gitea_data:/data
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gitea.rule=Host(`gitea.local`)"
-      - "traefik.http.routers.gitea.entrypoints=web"
+      - "traefik.http.routers.gitea.rule=Host(`gitea.teste.dev.br`)"
+      - "traefik.http.routers.gitea.entrypoints=websecure"
+      - "traefik.http.routers.gitea.tls.certresolver=myresolver"
       - "traefik.http.services.gitea.loadbalancer.server.port=3000"
     networks:
       - app_network
@@ -203,8 +208,9 @@ services:
       - portainer_data:/data
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(`portainer.local`)"
-      - "traefik.http.routers.portainer.entrypoints=web"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.teste.dev.br`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=myresolver"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
     networks:
       - app_network
